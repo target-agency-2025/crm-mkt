@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Teste Supabase</title>
+</head>
+<body>
+  <h1>Formulário de Contatos</h1>
+
+  <form id="form-contato">
+    <input type="text" id="nome" placeholder="Seu nome" required>
+    <input type="email" id="email" placeholder="Seu e-mail" required>
+    <textarea id="mensagem" placeholder="Sua mensagem"></textarea>
+    <button type="submit">Salvar</button>
+  </form>
+
+  <h2>Lista de contatos</h2>
+  <ul id="lista-contatos"></ul>
+
+  <script type="module">
+    import { salvarContato, listarContatos } from './script.js'
+
+    // Envio do formulário
+    document.getElementById("form-contato").addEventListener("submit", async (e) => {
+      e.preventDefault()
+      const nome = document.getElementById("nome").value
+      const email = document.getElementById("email").value
+      const mensagem = document.getElementById("mensagem").value
+      await salvarContato(nome, email, mensagem)
+      e.target.reset()
+    })
+
+    // Carrega lista ao abrir
+    listarContatos()
+  </script>
+</body>
+</html>
