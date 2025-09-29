@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { 
   Home, 
   Users, 
@@ -7,7 +7,9 @@ import {
   Trello,
   Briefcase,
   Calculator,
-  Calendar
+  Calendar,
+  Download,
+  Upload
 } from 'lucide-react';
 import { useCRM } from '../context/CRMContext';
 
@@ -17,8 +19,117 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage }) => {
-  const { user } = useCRM();
-  
+  const { 
+    user, 
+    isAuthenticated,
+    clients,
+    uniqueJobs,
+    invoices,
+    credentials,
+    tasks,
+    budgetPlans,
+    budgets,
+    quotes,
+    calendarEvents
+  } = useCRM();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Function to export all CRM data to JSON
+  const exportData = () => {
+    // Collect all CRM data that would be saved to localStorage
+    const crmData: Record<string, any> = {};
+    
+    // If user is authenticated, collect their data
+    if (isAuthenticated && user) {
+      const dataToSave = {
+        clients,
+        uniqueJobs,
+        invoices,
+        credentials,
+        tasks,
+        budgetPlans,
+        budgets,
+        quotes,
+        calendarEvents
+      };
+      
+      // Save with the same key pattern used in the CRM context
+      crmData[`crm-data-${user.id}`] = dataToSave;
+    }
+    
+    // Also collect any other CRM-related data from localStorage
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('crm-') && !(user && key.startsWith(`crm-data-${user.id}`))) {
+        try {
+          const data = localStorage.getItem(key);
+          if (data) {
+            crmData[key] = JSON.parse(data);
+          }
+        } catch (e) {
+          console.error(`Error parsing localStorage key ${key}:`, e);
+        }
+      }
+    }
+    
+    // Create JSON blob
+    const dataStr = JSON.stringify(crmData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    
+    // Create download link
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'dados.json';
+    
+    // Trigger download
+    document.body.appendChild(link);
+    link.click();
+    
+    // Cleanup
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Function to import CRM data from JSON file
+  const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const importedData = JSON.parse(content);
+        
+        // Save all data to localStorage
+        Object.keys(importedData).forEach(key => {
+          if (key.startsWith('crm-')) {
+            localStorage.setItem(key, JSON.stringify(importedData[key]));
+          }
+        });
+        
+        // Show success message and reload
+        alert('Dados importados com sucesso!');
+        window.location.reload();
+      } catch (error) {
+        console.error('Error importing data:', error);
+        alert('Erro ao importar dados. Verifique se o arquivo é válido.');
+      }
+    };
+    
+    reader.readAsText(file);
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const triggerFileSelect = () => {
+    fileInputRef.current?.click();
+  };
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'clients', label: 'Clientes', icon: Users },
@@ -80,6 +191,36 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, setCurrentPage }) => {
               </li>
             );
           })}
+          
+          {/* Export/Import Buttons */}
+          <li className="mt-6 pt-4 border-t border-white/20">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={exportData}
+                className="flex items-center justify-center space-x-2 px-3 py-2 rounded-lg bg-white/15 text-white hover:bg-white/25 transition-all duration-300"
+              >
+                <Download size={16} />
+                <span className="text-xs font-medium">Exportar</span>
+              </button>
+              
+              <button
+                onClick={triggerFileSelect}
+                className="flex items-center justify-center space-x-2 px-3 py-2 rounded-lg bg-white/15 text-white hover:bg-white/25 transition-all duration-300"
+              >
+                <Upload size={16} />
+                <span className="text-xs font-medium">Importar</span>
+              </button>
+            </div>
+            
+            {/* Hidden file input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={importData}
+              accept=".json"
+              className="hidden"
+            />
+          </li>
         </ul>
       </nav>
       
